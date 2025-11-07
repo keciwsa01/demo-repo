@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Browser Viewer</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 600px;
+      background: white;
+      border-radius: 20px;
+      padding: 40px 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 32px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .instructions {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+      box-sizing: border-box;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    button {
+      flex: 1;
+      padding: 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .file-btn {
+      width: 100%;
+      padding: 16px;
+      border: 2px dashed #667eea;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: #f8f9ff;
+      color: #667eea;
+    }
+
+    .file-btn:hover {
+      background: #eef0ff;
+      border-color: #5568d3;
+    }
+
+    .primary-btn {
+      background: #667eea;
+      color: white;
+    }
+
+    .primary-btn:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .secondary-btn {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .secondary-btn:hover {
+      background: #e0e0e0;
+    }
+
+    .message {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 10px;
+      text-align: center;
+      font-size: 14px;
+      display: none;
+    }
+
+    .message.error {
+      background: #fee;
+      color: #c33;
+      border: 1px solid #fcc;
+    }
+
+    .message.success {
+      background: #efe;
+      color: #3c3;
+      border: 1px solid #cfc;
+    }
+
+    .tips {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .tips h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .tips ul {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+
+    .tips li {
+      margin-bottom: 6px;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
+ </head>
+ <body>
+  <div class="container">
+   <h1 id="page-title">PDF Browser Viewer</h1>
+   <p class="instructions" id="instruction-text">Enter a PDF URL or search term to open PDFs directly in your browser for read-aloud and annotation features</p>
+   <div class="input-group"><label for="pdf-url">PDF URL</label> <input type="text" id="pdf-url" placeholder="https://example.com/document.pdf">
+   </div>
+   <div class="input-group"><label for="search-term">Or Search for PDF</label> <input type="text" id="search-term" placeholder="Enter search term">
+   </div>
+   <div class="input-group"><label for="file-input">Or Browse Device Files</label> <input type="file" id="file-input" accept=".pdf,application/pdf" style="display: none;"> <button class="file-btn" id="browse-btn">📁 Browse Files</button>
+   </div>
+   <div class="button-group"><button class="primary-btn" id="open-btn">Open PDF</button> <button class="secondary-btn" id="search-btn">Search for PDF</button>
+   </div>
+   <div class="message" id="message"></div>
+   <div class="tips">
+    <h3>💡 Tips for Best Results:</h3>
+    <ul>
+     <li><strong>Direct URL:</strong> Paste a direct link to a PDF file (must end in .pdf)</li>
+     <li><strong>Browse Files:</strong> Click "Browse Files" to select a PDF from your device's storage</li>
+     <li><strong>Search:</strong> Enter keywords to search for PDFs on Google</li>
+     <li><strong>Edge Features:</strong> Once opened, use Edge's read-aloud button (speaker icon) and annotation tools</li>
+     <li><strong>Permissions:</strong> Your browser may ask for permission to access files</li>
+    </ul>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      page_title: "PDF Browser Viewer",
+      search_label: "Search for PDF",
+      instruction_text: "Enter a PDF URL or search term to open PDFs directly in your browser for read-aloud and annotation features",
+      primary_color: "#667eea",
+      secondary_color: "#764ba2",
+      surface_color: "#ffffff",
+      text_color: "#333333",
+      button_color: "#f0f0f0"
+    };
+
+    async function onConfigChange(config) {
+      document.getElementById('page-title').textContent = config.page_title || defaultConfig.page_title;
+      document.getElementById('instruction-text').textContent = config.instruction_text || defaultConfig.instruction_text;
+      document.getElementById('search-btn').textContent = config.search_label || defaultConfig.search_label;
+
+      const primaryColor = config.primary_color || defaultConfig.primary_color;
+      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
+      const surfaceColor = config.surface_color || defaultConfig.surface_color;
+      const textColor = config.text_color || defaultConfig.text_color;
+      const buttonColor = config.button_color || defaultConfig.button_color;
+
+      document.body.style.background = `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`;
+      document.querySelector('.container').style.background = surfaceColor;
+      document.querySelector('h1').style.color = textColor;
+      document.querySelector('.instructions').style.color = textColor;
+      document.querySelectorAll('label').forEach(label => label.style.color = textColor);
+      document.querySelector('.primary-btn').style.background = primaryColor;
+      document.querySelector('.secondary-btn').style.background = buttonColor;
+    }
+
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [
+          {
+            get: () => config.primary_color || defaultConfig.primary_color,
+            set: (value) => {
+              config.primary_color = value;
+              window.elementSdk.setConfig({ primary_color: value });
+            }
+          },
+          {
+            get: () => config.secondary_color || defaultConfig.secondary_color,
+            set: (value) => {
+              config.secondary_color = value;
+              window.elementSdk.setConfig({ secondary_color: value });
+            }
+          },
+          {
+            get: () => config.surface_color || defaultConfig.surface_color,
+            set: (value) => {
+              config.surface_color = value;
+              window.elementSdk.setConfig({ surface_color: value });
+            }
+          },
+          {
+            get: () => config.text_color || defaultConfig.text_color,
+            set: (value) => {
+              config.text_color = value;
+              window.elementSdk.setConfig({ text_color: value });
+            }
+          },
+          {
+            get: () => config.button_color || defaultConfig.button_color,
+            set: (value) => {
+              config.button_color = value;
+              window.elementSdk.setConfig({ button_color: value });
+            }
+          }
+        ],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      };
+    }
+
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ["page_title", config.page_title || defaultConfig.page_title],
+        ["search_label", config.search_label || defaultConfig.search_label],
+        ["instruction_text", config.instruction_text || defaultConfig.instruction_text]
+      ]);
+    }
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+    }
+
+    const pdfUrlInput = document.getElementById('pdf-url');
+    const searchTermInput = document.getElementById('search-term');
+    const openBtn = document.getElementById('open-btn');
+    const searchBtn = document.getElementById('search-btn');
+    const browseBtn = document.getElementById('browse-btn');
+    const fileInput = document.getElementById('file-input');
+    const messageDiv = document.getElementById('message');
+
+    function showMessage(text, type) {
+      messageDiv.textContent = text;
+      messageDiv.className = `message ${type}`;
+      messageDiv.style.display = 'block';
+      setTimeout(() => {
+        messageDiv.style.display = 'none';
+      }, 5000);
+    }
+
+    function isValidPdfUrl(url) {
+      try {
+        const urlObj = new URL(url);
+        return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }
+
+    openBtn.addEventListener('click', () => {
+      const url = pdfUrlInput.value.trim();
+      
+      if (!url) {
+        showMessage('Please enter a PDF URL', 'error');
+        return;
+      }
+
+      if (!isValidPdfUrl(url)) {
+        showMessage('Please enter a valid URL starting with http:// or https://', 'error');
+        return;
+      }
+
+      showMessage('Opening PDF in new tab...', 'success');
+      window.open(url, '_blank', 'noopener,noreferrer');
+    });
+
+    searchBtn.addEventListener('click', () => {
+      const searchTerm = searchTermInput.value.trim();
+      
+      if (!searchTerm) {
+        showMessage('Please enter a search term', 'error');
+        return;
+      }
+
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchTerm + ' filetype:pdf')}`;
+      showMessage('Opening search results in new tab...', 'success');
+      window.open(searchUrl, '_blank', 'noopener,noreferrer');
+    });
+
+    pdfUrlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        openBtn.click();
+      }
+    });
+
+    searchTermInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        searchBtn.click();
+      }
+    });
+
+    browseBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      
+      if (!file) {
+        return;
+      }
+
+      if (file.type !== 'application/pdf') {
+        showMessage('Please select a PDF file', 'error');
+        return;
+      }
+
+      const blob = new Blob([file], { type: 'application/pdf' });
+      const fileUrl = URL.createObjectURL(blob);
+      
+      showMessage(`Opening ${file.name} in new tab...`, 'success');
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      
+      fileInput.value = '';
+    });
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99afdf86d62a53bc',t:'MTc2MjU1MDQxMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
