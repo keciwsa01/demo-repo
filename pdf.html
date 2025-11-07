@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDF Browser Viewer</title>
   <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     body {
       box-sizing: border-box;
@@ -218,6 +219,7 @@
       border: 2px solid #e0e0e0;
       border-radius: 0 0 10px 10px;
       background: #525659;
+      overflow: auto;
     }
 
     .pdf-container iframe {
@@ -225,6 +227,53 @@
       height: 100%;
       border: none;
       border-radius: 0 0 10px 10px;
+    }
+
+    #pdf-canvas-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      gap: 10px;
+    }
+
+    .pdf-page {
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      margin-bottom: 10px;
+    }
+
+    .pdf-controls {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      background: #f8f9fa;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .pdf-controls button {
+      padding: 8px 16px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .pdf-controls button:hover {
+      background: #5568d3;
+    }
+
+    .pdf-controls button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .pdf-controls span {
+      font-size: 14px;
+      font-weight: 600;
     }
   </style>
   <style>@view-transition { navigation: auto; }</style>
@@ -260,7 +309,10 @@
       PDF Document
      </div><button class="close-btn" id="close-pdf">✕ Close</button>
     </div>
-    <div class="pdf-container"><iframe id="pdf-frame" title="PDF Viewer"></iframe>
+    <div class="pdf-controls" id="pdf-controls" style="display: none;"><button id="prev-page">← Previous</button> <span id="page-info">Page 1 of 1</span> <button id="next-page">Next →</button>
+    </div>
+    <div class="pdf-container"><iframe id="pdf-frame" title="PDF Viewer" style="display: none;"></iframe>
+     <div id="pdf-canvas-container"></div>
     </div>
    </div>
   </div>
@@ -369,6 +421,20 @@
     const pdfFrame = document.getElementById('pdf-frame');
     const pdfTitle = document.getElementById('pdf-title');
     const closePdfBtn = document.getElementById('close-pdf');
+    const pdfCanvasContainer = document.getElementById('pdf-canvas-container');
+    const pdfControls = document.getElementById('pdf-controls');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const pageInfo = document.getElementById('page-info');
+
+    let currentPdf = null;
+    let currentPage = 1;
+    let totalPages = 0;
+
+    // Set worker path for PDF.js
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
 
     function showMessage(text, type) {
       messageDiv.textContent = text;
@@ -388,7 +454,66 @@
       }
     }
 
+    async function renderPdfPage(pdf, pageNum) {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.5 });
+      
+      const canvas = document.createElement('canvas');
+      canvas.className = 'pdf-page';
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport
+      };
+
+      await page.render(renderContext).promise;
+      return canvas;
+    }
+
+    async function displayPdfPage(pageNum) {
+      if (!currentPdf) return;
+
+      pdfCanvasContainer.innerHTML = '';
+      const canvas = await renderPdfPage(currentPdf, pageNum);
+      pdfCanvasContainer.appendChild(canvas);
+
+      currentPage = pageNum;
+      pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+      prevPageBtn.disabled = currentPage === 1;
+      nextPageBtn.disabled = currentPage === totalPages;
+    }
+
+    async function loadPdfFromFile(file, title) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        currentPdf = pdf;
+        totalPages = pdf.numPages;
+        currentPage = 1;
+
+        pdfFrame.style.display = 'none';
+        pdfCanvasContainer.style.display = 'block';
+        pdfControls.style.display = 'flex';
+
+        await displayPdfPage(1);
+
+        pdfTitle.textContent = title;
+        pdfViewer.classList.add('active');
+        pdfViewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (error) {
+        showMessage('Error loading PDF: ' + error.message, 'error');
+      }
+    }
+
     function openPdfInViewer(url, title) {
+      pdfFrame.style.display = 'block';
+      pdfCanvasContainer.style.display = 'none';
+      pdfControls.style.display = 'none';
+      
       pdfFrame.src = url;
       pdfTitle.textContent = title;
       pdfViewer.classList.add('active');
@@ -397,7 +522,11 @@
 
     function closePdfViewer() {
       pdfFrame.src = '';
+      pdfCanvasContainer.innerHTML = '';
       pdfViewer.classList.remove('active');
+      currentPdf = null;
+      currentPage = 1;
+      totalPages = 0;
     }
 
     openBtn.addEventListener('click', () => {
@@ -447,7 +576,7 @@
       fileInput.click();
     });
 
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       
       if (!file) {
@@ -459,11 +588,8 @@
         return;
       }
 
-      const blob = new Blob([file], { type: 'application/pdf' });
-      const fileUrl = URL.createObjectURL(blob);
-      
       showMessage(`Loading ${file.name}...`, 'success');
-      openPdfInViewer(fileUrl, file.name);
+      await loadPdfFromFile(file, file.name);
       
       fileInput.value = '';
     });
@@ -471,6 +597,18 @@
     closePdfBtn.addEventListener('click', () => {
       closePdfViewer();
     });
+
+    prevPageBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        displayPdfPage(currentPage - 1);
+      }
+    });
+
+    nextPageBtn.addEventListener('click', () => {
+      if (currentPage < totalPages) {
+        displayPdfPage(currentPage + 1);
+      }
+    });
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99afe33cb1b6570d',t:'MTc2MjU1MDU2My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99afecd6a60a53bc',t:'MTc2MjU1MDk1Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
